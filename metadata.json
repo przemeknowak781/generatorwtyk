@@ -1,0 +1,5 @@
+{
+  "name": "Form  New Socket Frame Configurator 3D",
+  "description": "A WebGL-based 3D configurator for ceramic-style socket frames. Generates print-ready STL files with strict dimensional accuracy for electrical fittings.",
+  "requestFramePermissions": []
+}
