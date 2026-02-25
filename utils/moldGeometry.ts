@@ -10,7 +10,11 @@
  */
 
 import * as THREE from 'three';
+import { Brush, Evaluator, INTERSECTION } from 'three-bvh-csg';
 import { FrameConfig, MoldConfig } from '../types';
+import { generateFrameGeometry } from './geometry';
+
+const csgEvaluator = new Evaluator();
 
 // ─── Shared dimension helpers ────────────────────────────────────────────────
 
@@ -32,8 +36,14 @@ export function getMoldDimensions(fc: FrameConfig, mc: MoldConfig): MoldDimensio
     const comp = 1 / (1 - fc.shrinkagePercent / 100);
     const rInner = (fc.innerHoleDiameter / 2) * comp;
     const rStep = (fc.stepDiameter / 2) * comp;
-    const rOuterMax = (fc.outerDiameter / 2) * comp;
-    const maxFrameHeight = (fc.height + fc.reliefHeight) * comp;
+    const serrationHeadroom = fc.edgeSerrations > 0 ? 1.5 * comp : 0;
+    const scaleHeadroom = fc.enableXYScale ? Math.max(fc.scaleX, fc.scaleY) : 1;
+    const flareHeadroom = 1 + Math.max(0, fc.flare);
+    const rOuterMax = ((fc.outerDiameter / 2) * comp + serrationHeadroom) * scaleHeadroom * flareHeadroom;
+
+    const profileHeight = (fc.height + fc.reliefHeight * fc.reliefHeightRatio) * comp;
+    const detailHeight = (Math.max(0, fc.wavyEdge) + Math.max(0, fc.profileRipple) + Math.max(0, fc.microWave)) * comp;
+    const maxFrameHeight = profileHeight + detailHeight;
     const stepHeight = fc.seatingRingDepth * comp;
     const moldOuterR = rOuterMax + mc.moldClearance;
 
@@ -58,104 +68,69 @@ export function generateQuarterFrameGeometry(
     quadrant: 0 | 1 | 2 | 3,
     qualityMultiplier: number = 1,
 ): THREE.BufferGeometry {
-    const {
-        petals, outerDiameter, height, reliefHeight,
-        innerHoleDiameter, stepDiameter, seatingRingDepth,
-        petalIndentation, petalRoundness, smoothness, shrinkagePercent,
-    } = config;
+    // Build the exact frame geometry used in normal mode and cut it to a quadrant.
+    // This keeps slipcast fully in sync with all shape sliders from geometry.ts.
+    const fullGeometry = generateFrameGeometry(config, qualityMultiplier);
+    fullGeometry.computeBoundingBox();
 
-    const comp = 1 / (1 - shrinkagePercent / 100);
-    const rInner = (innerHoleDiameter / 2) * comp;
-    const rStep = (stepDiameter / 2) * comp;
-    const rOuterMax = (outerDiameter / 2) * comp;
-    const maxHeight = (height + reliefHeight) * comp;
-    const stepHeight = seatingRingDepth * comp;
-
-    const radialSegments = Math.floor(128 * qualityMultiplier);
-    const angularSegments = Math.max(8, Math.floor((smoothness * qualityMultiplier) / 4));
-
-    const startAngle = (quadrant * Math.PI) / 2;
-    const endAngle = ((quadrant + 1) * Math.PI) / 2;
-
-    // ── Profile generator (identical to geometry.ts) ──
-    const getProfile = (outerR: number) => {
-        const pts: { r: number; z: number }[] = [];
-        pts.push({ r: rInner, z: 0 });
-        pts.push({ r: rInner, z: stepHeight });
-        pts.push({ r: rStep, z: stepHeight });
-        const bodyStart = rStep;
-        const bodyWidth = outerR - bodyStart;
-        const peakT = 0.3 + petalRoundness * 0.2;
-        for (let i = 1; i <= radialSegments; i++) {
-            const t = i / radialSegments;
-            const r = bodyStart + bodyWidth * t;
-            let z = 0;
-            if (t < peakT) {
-                const lt = t / peakT;
-                z = stepHeight + (maxHeight - stepHeight) * (1 - Math.pow(1 - lt, 2));
-            } else {
-                const lt = (t - peakT) / (1 - peakT);
-                z = maxHeight * Math.cos(lt * Math.PI / 2);
-            }
-            pts.push({ r, z: Math.max(0, z) });
-        }
-        pts[pts.length - 1].z = 0;
-        return pts;
-    };
-
-    const vertices: number[] = [];
-    const indices: number[] = [];
-
-    // ── Generate surface slices ──
-    for (let s = 0; s <= angularSegments; s++) {
-        const theta = startAngle + (s / angularSegments) * (endAngle - startAngle);
-        const cos = Math.cos(theta);
-        const sin = Math.sin(theta);
-
-        const rawWave = Math.cos(petals * theta);
-        const petalMod = (Math.sign(rawWave) * Math.pow(Math.abs(rawWave), 1 / (0.1 + petalRoundness * 2)) + 1) / 2;
-        const outerR = rOuterMax * (1 - petalIndentation * (1 - petalMod));
-
-        const profile = getProfile(outerR);
-        for (const p of profile) {
-            vertices.push(p.r * cos, p.r * sin, p.z);
-        }
+    const bb = fullGeometry.boundingBox;
+    if (!bb) {
+        return fullGeometry;
     }
 
-    const vps = getProfile(rOuterMax).length; // vertices-per-slice
+    const pad = 2;
+    const zMin = bb.min.z - pad;
+    const zMax = bb.max.z + pad;
 
-    // ── Side faces (connect adjacent slices) ──
-    for (let s = 0; s < angularSegments; s++) {
-        for (let v = 0; v < vps; v++) {
-            const vNext = (v + 1) % vps;
-            const a = s * vps + v;
-            const b = s * vps + vNext;
-            const c = (s + 1) * vps + vNext;
-            const d = (s + 1) * vps + v;
-            indices.push(a, b, d);
-            indices.push(b, c, d);
-        }
+    let xMin = bb.min.x - pad;
+    let xMax = bb.max.x + pad;
+    let yMin = bb.min.y - pad;
+    let yMax = bb.max.y + pad;
+
+    if (quadrant === 0) {
+        xMin = 0;
+        yMin = 0;
+    } else if (quadrant === 1) {
+        xMax = 0;
+        yMin = 0;
+    } else if (quadrant === 2) {
+        xMax = 0;
+        yMax = 0;
+    } else {
+        xMin = 0;
+        yMax = 0;
     }
 
-    // ── Cap faces at startAngle and endAngle ──
-    // Start cap (normal facing -angular direction → into previous quadrant)
-    const s0 = 0;
-    for (let v = 1; v < vps - 1; v++) {
-        indices.push(s0, s0 + v + 1, s0 + v);
-    }
-    // End cap (normal facing +angular direction → into next quadrant)
-    const sN = angularSegments * vps;
-    for (let v = 1; v < vps - 1; v++) {
-        indices.push(sN, sN + v, sN + v + 1);
-    }
+    const sx = Math.max(1e-3, xMax - xMin);
+    const sy = Math.max(1e-3, yMax - yMin);
+    const sz = Math.max(1e-3, zMax - zMin);
 
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geom.setIndex(indices);
-    geom.computeVertexNormals();
-    return geom;
+    const clipGeometry = new THREE.BoxGeometry(sx, sy, sz);
+    clipGeometry.translate((xMin + xMax) * 0.5, (yMin + yMax) * 0.5, (zMin + zMax) * 0.5);
+
+    const frameBrush = new Brush(fullGeometry);
+    const clipBrush = new Brush(clipGeometry);
+    frameBrush.updateMatrixWorld(true);
+    clipBrush.updateMatrixWorld(true);
+
+    const resultBrush = csgEvaluator.evaluate(frameBrush, clipBrush, INTERSECTION);
+    const quarterGeometry = resultBrush.geometry.clone();
+    quarterGeometry.computeVertexNormals();
+
+    // Clean up temporary CSG resources created on each generation pass.
+    const tempGeometries: THREE.BufferGeometry[] = [fullGeometry, clipGeometry];
+    if (
+        resultBrush.geometry &&
+        resultBrush.geometry !== quarterGeometry &&
+        resultBrush.geometry !== fullGeometry &&
+        resultBrush.geometry !== clipGeometry
+    ) {
+        tempGeometries.push(resultBrush.geometry);
+    }
+    tempGeometries.forEach((g) => g.dispose());
+
+    return quarterGeometry;
 }
-
 // ─── Mold base plate (quarter disc) ──────────────────────────────────────────
 
 export function generateMoldBase(

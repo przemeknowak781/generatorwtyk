@@ -369,15 +369,14 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
   };
 
   // ─── Main vertex generation loop ───
-  for (let s = 0; s <= angularSegments; s++) {
+  // We go up to < angularSegments to avoid duplicate vertices at the seam (0 and 2PI)
+  for (let s = 0; s < angularSegments; s++) {
     const theta = (s / angularSegments) * Math.PI * 2;
     const u = s / angularSegments;
 
-    // Compute raw wave for this angle (includes pattern rotation, asymmetry, faceting, etc.)
     const rawWave = computeRawWave(theta);
     const petalMod = computePetalMod(rawWave);
 
-    // A3: Petal amplitude variation — alternate petal sizes
     let ampMod = 1;
     if (petalAmplitudeVariation > 0) {
       const altWave = Math.cos(petals * theta / 2);
@@ -386,14 +385,12 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
 
     let currentOuterRadius = rOuterMax * (1 - petalIndentation * ampMod * (1 - petalMod));
 
-    // F6: Edge serrations
     if (edgeSerrations > 0) {
       const serrationAmp = 1.5;
       const serrWave = Math.abs(Math.sin(edgeSerrations * theta));
       currentOuterRadius += serrationAmp * serrWave * comp;
     }
 
-    // H4: Wavy edge — modulate max height per theta
     const wavyFreq = petals * 2;
     const effectiveMaxHeight = baseMaxHeight + wavyEdge * Math.sin(wavyFreq * theta) * comp;
 
@@ -407,7 +404,6 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
       }
     }
 
-    // Compute cos/sin for base theta (without pattern rotation — that's for the wave only)
     const cosTheta = Math.cos(theta);
     const sinTheta = Math.sin(theta);
 
@@ -416,16 +412,13 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
       let y = p.r * sinTheta;
       let z = p.z;
 
-      // A2: Petal twist — progressive rotation along Z
       if (petalTwist !== 0 && effectiveMaxHeight > 0) {
         const twistAtZ = (z / effectiveMaxHeight) * petalTwist * (Math.PI / 180);
         const nx = x * Math.cos(twistAtZ) - y * Math.sin(twistAtZ);
         const ny = x * Math.sin(twistAtZ) + y * Math.cos(twistAtZ);
-        x = nx;
-        y = ny;
+        x = nx; y = ny;
       }
 
-      // C4/C5: Taper / Flare
       if ((taper > 0 || flare > 0) && effectiveMaxHeight > 0) {
         const zRatio = z / effectiveMaxHeight;
         const taperScale = 1 - taper * zRatio;
@@ -434,17 +427,13 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
         y *= taperScale * flareScale;
       }
 
-      // L2: Global twist
       if (globalTwist !== 0 && effectiveMaxHeight > 0) {
         const twistAngle = (z / effectiveMaxHeight) * globalTwist * (Math.PI / 180);
         const nx = x * Math.cos(twistAngle) - y * Math.sin(twistAngle);
         const ny = x * Math.sin(twistAngle) + y * Math.cos(twistAngle);
-        x = nx;
-        y = ny;
+        x = nx; y = ny;
       }
 
-      // C3: Scale X/Y only on the outer styling zone and only when enabled.
-      // Keep the functional inner opening/step dimensions circular and dimensionally stable.
       if (enableXYScale) {
         const scaleBlendDen = Math.max(1e-6, currentOuterRadius - rStep);
         const outerBlend = Math.max(0, Math.min(1, (p.r - rStep) / scaleBlendDen));
@@ -462,14 +451,15 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
   const verticesPerSlice = isHollow ? sampleOuter.length * 2 : sampleOuter.length;
 
   for (let s = 0; s < angularSegments; s++) {
+    const iNext = (s + 1) % angularSegments; // Wraps around to 0
     for (let v = 0; v < verticesPerSlice; v++) {
       const vNext = (v + 1) % verticesPerSlice;
 
       if (!isHollow && v === verticesPerSlice - 1) {
         const a = s * verticesPerSlice + v;
         const b = s * verticesPerSlice + 0;
-        const c = (s + 1) * verticesPerSlice + 0;
-        const d = (s + 1) * verticesPerSlice + v;
+        const c = iNext * verticesPerSlice + 0;
+        const d = iNext * verticesPerSlice + v;
         indices.push(a, b, d);
         indices.push(b, c, d);
         continue;
@@ -477,8 +467,8 @@ export const generateFrameGeometry = (config: FrameConfig, qualityMultiplier: nu
 
       const a = s * verticesPerSlice + v;
       const b = s * verticesPerSlice + vNext;
-      const c = (s + 1) * verticesPerSlice + vNext;
-      const d = (s + 1) * verticesPerSlice + v;
+      const c = iNext * verticesPerSlice + vNext;
+      const d = iNext * verticesPerSlice + v;
 
       indices.push(a, b, d);
       indices.push(b, c, d);

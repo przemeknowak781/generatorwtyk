@@ -231,3 +231,64 @@ export const DEFAULT_MULTI_SOCKET_CONFIG: MultiSocketConfig = {
   bridgeGrooveCount: 0,
   bridgeGrooveDepth: 0.5,
 };
+
+// ─── CAD Export Configuration ───
+
+export interface CadConfig {
+  // Rzuty do wygenerowania
+  views: ('front' | 'right' | 'back' | 'top' | 'section-aa' | 'section-bb')[];
+
+  // Jakość ekstrakcji krawędzi
+  angleThreshold: number;          // [30-70°] próg detekcji krawędzi
+  includeHiddenLines: boolean;     // czy rysować linie kreskowe
+  includeIntersectionEdges: boolean;
+  qualityMultiplier: number;       // mnożnik rozdzielczości geometrii
+
+  // Wymiarowanie
+  showDimensions: boolean;
+  showCenterlines: boolean;
+  showTitleBlock: boolean;
+  showOutlines: boolean;
+
+  // Arkusz
+  sheetSize: 'A4' | 'A3' | 'A2';  // rozmiar papieru
+  scale: number;                    // skala rysunku (np. 1, 2, 5)
+  projectionMethod: 'first-angle' | 'third-angle';
+
+  // Eksport
+  exportFormat: 'svg' | 'dxf' | 'both';
+
+  // Metadane ramki rysunkowej
+  titleBlock: {
+    projectName: string;
+    drawingNumber: string;
+    author: string;
+    date: string;
+    material: string;
+    scale: string;
+  };
+}
+
+export const DEFAULT_CAD_CONFIG: CadConfig = {
+  views: ['front', 'right', 'back', 'top', 'section-aa', 'section-bb'],
+  angleThreshold: 50,
+  includeHiddenLines: true,
+  includeIntersectionEdges: true,
+  qualityMultiplier: 3,
+  showDimensions: true,
+  showCenterlines: true,
+  showTitleBlock: true,
+  showOutlines: true,
+  sheetSize: 'A3',
+  scale: 1,
+  projectionMethod: 'first-angle',
+  exportFormat: 'svg',
+  titleBlock: {
+    projectName: 'Ramka Gniazdkowa',
+    drawingNumber: 'RF-001',
+    author: '',
+    date: new Date().toISOString().split('T')[0],
+    material: 'Ceramika / PLA',
+    scale: '1:1',
+  },
+};

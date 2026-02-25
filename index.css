@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #f3f4f6;
+}
+
+canvas {
+  touch-action: none;
+}
+
+/* App-specific utility used in CAD modal scroll area */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #a5b4fc #eef2ff;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #eef2ff;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #818cf8, #6366f1);
+  border-radius: 9999px;
+  border: 2px solid #eef2ff;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #6366f1, #4f46e5);
+}

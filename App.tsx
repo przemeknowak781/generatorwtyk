@@ -8,6 +8,7 @@ import { SocketFrame } from './components/SocketFrame';
 import { MultiSocketFrame } from './components/MultiSocketFrame';
 import { MoldPreview } from './components/MoldPreview';
 import { Controls } from './components/Controls';
+import { CadExportPanel } from './components/CadExportPanel'; // [NOWY]
 import { downloadSTL, downloadMultipleSTL } from './utils/exportUtils';
 import { generateFrameGeometry, generateSolidHalfCone } from './utils/geometry';
 import { generateMultiSocketGeometry } from './utils/multiSocketGeometry';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [moldConfig, setMoldConfig] = useState<MoldConfig>(DEFAULT_MOLD_CONFIG);
   const [multiConfig, setMultiConfig] = useState<MultiSocketConfig>(DEFAULT_MULTI_SOCKET_CONFIG);
   const [isExporting, setIsExporting] = useState(false);
+  const [isCadOpen, setIsCadOpen] = useState(false); // [NOWY]
   const objectRef = useRef<THREE_CORE.Object3D | null>(null);
 
   const handleMeshReady = (obj: THREE_CORE.Object3D) => {
@@ -215,6 +217,26 @@ const App: React.FC = () => {
         setMultiConfig={setMultiConfig}
         onExport={moldConfig.enabled ? handleMoldExport : multiConfig.enabled ? handleMultiExport : handleExport}
       />
+
+      {/* CAD Export Trigger Button (Floating) */}
+      <button
+        onClick={() => setIsCadOpen(true)}
+        className="absolute top-6 right-6 z-20 bg-white/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all group active:scale-95 pointer-events-auto"
+      >
+        <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div className="flex flex-col items-start leading-tight">
+          <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Dokumentacja</span>
+          <span className="text-sm font-black">EKSPORT CAD</span>
+        </div>
+      </button>
+
+      {isCadOpen && (
+        <CadExportPanel config={config} onClose={() => setIsCadOpen(false)} />
+      )}
 
       {isExporting && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
