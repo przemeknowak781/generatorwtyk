@@ -2,9 +2,12 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
+      // GitHub Pages serves the app under /<repo-name>/. The dev server
+      // still runs at the root.
+      base: command === 'build' ? '/generatorwtyk/' : '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
