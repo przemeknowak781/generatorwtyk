@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FrameConfig, MoldConfig, MultiSocketConfig, DEFAULT_CONFIG } from '../types';
+import { FrameConfig, MoldConfig, MultiSocketConfig, SocketConfig, DEFAULT_CONFIG } from '../types';
 
 interface ControlsProps {
   config: FrameConfig;
@@ -9,6 +9,8 @@ interface ControlsProps {
   setMoldConfig: React.Dispatch<React.SetStateAction<MoldConfig>>;
   multiConfig: MultiSocketConfig;
   setMultiConfig: React.Dispatch<React.SetStateAction<MultiSocketConfig>>;
+  socketConfig: SocketConfig;
+  setSocketConfig: React.Dispatch<React.SetStateAction<SocketConfig>>;
   onExport: () => void;
 }
 
@@ -523,7 +525,7 @@ const Toggle: React.FC<{
   </div>
 );
 
-export const Controls: React.FC<ControlsProps> = ({ config, setConfig, moldConfig, setMoldConfig, multiConfig, setMultiConfig, onExport }) => {
+export const Controls: React.FC<ControlsProps> = ({ config, setConfig, moldConfig, setMoldConfig, multiConfig, setMultiConfig, socketConfig, setSocketConfig, onExport }) => {
 
   const handleChange = (key: keyof FrameConfig, value: number | string | boolean) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -867,6 +869,40 @@ export const Controls: React.FC<ControlsProps> = ({ config, setConfig, moldConfi
           <Toggle label="Wireframe" value={config.wireframeMode} onChange={(v) => handleChange('wireframeMode', v)} />
 
           <Slider label="Jakość siatki" value={config.smoothness} min={32} max={512} step={16} onChange={(v) => handleChange('smoothness', v)} />
+        </Section>
+
+        {/* ─── Gniazdo Schuko (CEE 7/3) ─── */}
+        <Section title="Gniazdo Schuko" color="text-emerald-700" bgColor="bg-emerald-50/50" borderColor="border-emerald-100">
+          <Toggle label="Pokaż gniazdo w ramce" value={socketConfig.visible} color="bg-emerald-600"
+            onChange={(v) => setSocketConfig(p => ({ ...p, visible: v }))} />
+
+          {socketConfig.visible && (
+            <div className="space-y-3 pt-2 border-t border-emerald-100 animate-in fade-in duration-300">
+              <div className="text-[9px] text-emerald-700/70 leading-relaxed">
+                Znormalizowane: kołnierz Ø45 · wnęka Ø35×17.5 mm · bolce Ø5 @ ±9.5 mm · PE @ ±16 mm
+              </div>
+
+              <Slider label="Wysokość kołnierza" value={socketConfig.flangeHeight} min={1} max={10} step={0.5} unit="mm"
+                accent="accent-emerald-500"
+                onChange={(v) => setSocketConfig(p => ({ ...p, flangeHeight: v }))} />
+
+              <Slider label="Luz płytki" value={socketConfig.faceplateClearance} min={0} max={2} step={0.1} unit="mm"
+                accent="accent-emerald-500"
+                onChange={(v) => setSocketConfig(p => ({ ...p, faceplateClearance: v }))} />
+
+              <Toggle label="Kolor jak ramka" value={socketConfig.matchFrameColor} color="bg-emerald-600"
+                onChange={(v) => setSocketConfig(p => ({ ...p, matchFrameColor: v }))} />
+
+              {!socketConfig.matchFrameColor && (
+                <div className="flex items-center gap-3">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase">Kolor ceramiki</label>
+                  <input type="color" value={socketConfig.color}
+                    onChange={(e) => setSocketConfig(p => ({ ...p, color: e.target.value }))}
+                    className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+                </div>
+              )}
+            </div>
+          )}
         </Section>
 
         {/* ─── Multi-Socket ─── */}

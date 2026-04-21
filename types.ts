@@ -94,7 +94,7 @@ export const DEFAULT_CONFIG: FrameConfig = {
   petalIndentation: 0.25,
   petalRoundness: 0.5,
   smoothness: 128,
-  color: '#a35d4d',
+  color: '#540d0d',
   roughness: 0.2,
   metalness: 0.1,
   flipY: false,
@@ -196,6 +196,28 @@ export const DEFAULT_MOLD_CONFIG: MoldConfig = {
   showKeys: false,
   showBase: true,
   moldOpacity: 0.35,
+};
+
+// ─── Schuko Socket Configuration ───
+
+export interface SocketConfig {
+  visible: boolean;
+  color: string;          // plastic body color
+  roughness: number;      // 0..1
+  metalness: number;      // 0..1
+  flangeHeight: number;   // [1..10 mm] flange protrusion above faceplate
+  faceplateClearance: number; // [0..2 mm] gap between faceplate edge and frame step
+  matchFrameColor: boolean;   // when true, use the frame's color instead of `color`
+}
+
+export const DEFAULT_SOCKET_CONFIG: SocketConfig = {
+  visible: true,
+  color: '#efe9d8',
+  roughness: 0.45,
+  metalness: 0.04,
+  flangeHeight: 4.0,
+  faceplateClearance: 0.4,
+  matchFrameColor: true,
 };
 
 // ─── Multi-Socket Configuration ───

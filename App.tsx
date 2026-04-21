@@ -3,12 +3,14 @@ import React, { useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment, Grid, ContactShadows } from '@react-three/drei';
 import * as THREE_CORE from 'three';
-import { FrameConfig, MoldConfig, MultiSocketConfig, DEFAULT_CONFIG, DEFAULT_MOLD_CONFIG, DEFAULT_MULTI_SOCKET_CONFIG } from './types';
+import { FrameConfig, MoldConfig, MultiSocketConfig, SocketConfig, DEFAULT_CONFIG, DEFAULT_MOLD_CONFIG, DEFAULT_MULTI_SOCKET_CONFIG, DEFAULT_SOCKET_CONFIG } from './types';
 import { SocketFrame } from './components/SocketFrame';
 import { MultiSocketFrame } from './components/MultiSocketFrame';
 import { MoldPreview } from './components/MoldPreview';
+import { SchukoSocket } from './components/SchukoSocket';
 import { Controls } from './components/Controls';
 import { CadExportPanel } from './components/CadExportPanel'; // [NOWY]
+import { Login } from './components/Login';
 import { downloadSTL, downloadMultipleSTL } from './utils/exportUtils';
 import { generateFrameGeometry, generateSolidHalfCone } from './utils/geometry';
 import { generateMultiSocketGeometry } from './utils/multiSocketGeometry';
@@ -17,9 +19,13 @@ import { buildMoldQuadrantGroup } from './utils/moldGeometry';
 const THREE_NS = THREE_CORE;
 
 const App: React.FC = () => {
+  const [authed, setAuthed] = useState<boolean>(() => {
+    try { return sessionStorage.getItem('auth') === '1'; } catch { return false; }
+  });
   const [config, setConfig] = useState<FrameConfig>(DEFAULT_CONFIG);
   const [moldConfig, setMoldConfig] = useState<MoldConfig>(DEFAULT_MOLD_CONFIG);
   const [multiConfig, setMultiConfig] = useState<MultiSocketConfig>(DEFAULT_MULTI_SOCKET_CONFIG);
+  const [socketConfig, setSocketConfig] = useState<SocketConfig>(DEFAULT_SOCKET_CONFIG);
   const [isExporting, setIsExporting] = useState(false);
   const [isCadOpen, setIsCadOpen] = useState(false); // [NOWY]
   const objectRef = useRef<THREE_CORE.Object3D | null>(null);
@@ -153,6 +159,10 @@ const App: React.FC = () => {
 
   const radius = config.outerDiameter / 2;
 
+  if (!authed) {
+    return <Login onSuccess={() => setAuthed(true)} />;
+  }
+
   return (
     <div className="relative w-full h-screen">
       <div className="absolute inset-0 z-0 bg-neutral-100">
@@ -173,7 +183,10 @@ const App: React.FC = () => {
             ) : multiConfig.enabled ? (
               <MultiSocketFrame config={config} multiConfig={multiConfig} onMeshReady={handleMeshReady} />
             ) : (
-              <SocketFrame config={config} onMeshReady={handleMeshReady} />
+              <>
+                <SocketFrame config={config} onMeshReady={handleMeshReady} />
+                <SchukoSocket frameConfig={config} socketConfig={socketConfig} />
+              </>
             )}
           </group>
 
@@ -215,6 +228,8 @@ const App: React.FC = () => {
         setMoldConfig={setMoldConfig}
         multiConfig={multiConfig}
         setMultiConfig={setMultiConfig}
+        socketConfig={socketConfig}
+        setSocketConfig={setSocketConfig}
         onExport={moldConfig.enabled ? handleMoldExport : multiConfig.enabled ? handleMultiExport : handleExport}
       />
 
